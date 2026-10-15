@@ -3,6 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,39 +15,38 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: Build Web App Asset Package
-        run: |
-          mkdir -p android-app/assets
-          cp index.html android-app/assets/
-          cp casio.png android-app/assets/
-
-      - name: Create Dummy Android Wrapper Structure
-        run: |
-          echo "Building lightweight Android wrapper..."
-
-      # Hum yahan standard Bubblewrap CLI use karenge jo GitHub par direct signed APK compile karta hai
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install Bubblewrap CLI
-        run: npm install -g @bubblewrap/cli
-
-      - name: Generate Android Project & APK
+      - name: Prepare web assets
         run: |
-          bubblewrap init --manifest=https://ca-karan23.github.io/casio-mj12d-ca/manifest.json --directory=./android-project || true
-          cd android-project || mkdir -p android-project && cd android-project
-          
-      - name: Alternative Fast Gradle Build (Direct Web-to-APK)
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          script: echo "Skipping emulator, artifact packaged via web build."- name: Upload APK
+          mkdir -p apkbuild/www
+          cp index.html apkbuild/www/
+          cp casio.png apkbuild/www/
+
+      - name: Create Capacitor Android project
+        working-directory: apkbuild
+        run: |
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "Casio MJ12D CA" com.karan.casiomj12d --web-dir=www
+          npx cap add android
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: apkbuild/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: android-project/app/build/outputs/apk/release/*.apk
+          name: casio-apk
+          path: apkbuild/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
