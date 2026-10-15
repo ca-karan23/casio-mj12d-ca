@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Casio MJ-12D CA Calculator - By Karan</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #0b0d10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #e2e8f0;
+        }
+
+        /* Top Utility Bar */
+        .utility-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+        }
+        .util-btn {
+            background: #1a202c;
+            color: #38bdf8;
+            border: 1px solid #2d3748;
+            padding: 7px 14px;
+            border-radius: 18px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.12s;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+        .util-btn.off {
+            color: #94a3b8;
+            border-color: #1e293b;
+            background: #131720;
+        }
+        .util-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Collapsible CA GST & Currency Drawer */
+        .ca-drawer {
+            display: none;
+            background: #151821;
+            border: 1px solid #2d3748;
+            border-radius: 12px;
+            padding: 8px;
+            width: 390px;
+            max-width: 95vw;
+            margin-bottom: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+        }
+        .ca-drawer.open {
+            display: grid;
+        }
+        .ca-chip {
+            background: #232938;
+            color: #f8fafc;
+            border: 1px solid #3b4252;
+            padding: 7px 4px;
+            font-size: 11px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .ca-chip:active {
+            transform: scale(0.95);
+            background: #334155;
+        }
+
+        /* Main Calculator Wrapper */
+        .calc-wrapper {
+            position: relative;
+            width: 390px;
+            max-width: 95vw;
+            aspect-ratio: 910 / 1015;
+            border-radius: 34px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 0 2px #1a1a1c;
+            background: #1d1e20;
+        }
+
+        /* Full-HD Original Cutout Image (https://i.ibb.co/7MjBpJy/Casio-MJ-12-D-Calculator-Cutout.png) */
+        #casioCutout {
+            position: absolute;
+            top: -4.6%;
+            left: -8.75%;
+            width: 117.5%;
+            height: 109.2%;
+            object-fit: fill;
+            pointer-events: none;
+            z-index: 1;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+        }
+
+        /* Authentic LCD Screen Overlay Aligned Inside Bezel */
+        .lcd-overlay {
+            position: absolute;
+            top: 15.6%;
+            left: 14.5%;
+            width: 71.0%;
+            height: 15.9%;
+            background: linear-gradient(180deg, #b8c4b4 0%, #aebba9 100%);
+            border-radius: 4px;
+            padding: 4px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            color: #111612;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.42);
+            z-index: 2;
+            overflow: hidden;
+        }
+
+        /* Top Indicators inside LCD */
+        .lcd-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 18px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 900;
+        }
+        .lcd-step-box {
+            font-size: 15px;
+            letter-spacing: -0.5px;
+            min-width: 36px;
+        }
+        .lcd-badges {
+            display: flex;
+            gap: 4px;
+            font-size: 10px;
+            letter-spacing: 0.2px;
+        }
+        .badge {
+            padding: 1px 3px;
+            border-radius: 2px;
+            opacity: 0.1;
+        }
+        .badge.active {
+            opacity: 1;
+            background: #111612;
+            color: #b8c4b4;
+        }
+        .lcd-op-box {
+            font-size: 16px;
+            font-weight: 900;
+            min-width: 24px;
+            text-align: right;
+        }
+
+        /* Main 12-Digit LCD Readout */
+        .lcd-main-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            height: 44px;
+        }
+        .lcd-left-flags {
+            display: flex;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            font-weight: 900;
+            min-width: 16px;
+        }
+        .flag-item {
+            opacity: 0;
+        }
+        .flag-item.active {
+            opacity: 1;
+        }
+        .lcd-digits {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 31px;
+            font-weight: 900;
+            text-align: right;
+            letter-spacing: -0.5px;
+            line-height: 42px;
+            white-space: nowrap;
+            flex-grow: 1;
+        }
+
+        /* Mapped Button Hotspots */
+        .key-hotspot {
+            position: absolute;
+            background: rgba(255, 255, 255, 0);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 3;
+            transition: background 0.04s, transform 0.04s;
+        }
+        .key-hotspot:active, .key-hotspot.pressed {
+            background: rgba(0, 0, 0, 0.42);
+            transform: scale(0.94);
+        }
+
+        /* Bottom Right Signature "By Karan" */
+        .karan-signature {
+            width: 390px;
+            max-width: 95vw;
+            text-align: right;
+            margin-top: 6px;
+            padding-right: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            letter-spacing: 0.6px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Action Bar -->
+    <div class="utility-bar">
+        <button class="util-btn" onpointerdown="Feedback.trigger()" onclick="UIController.toggleDrawer()">⚡ CA GST & Currency ▼</button>
+        <button class="util-btn" id="btnSound" onpointerdown="Feedback.toggleSound()">🔊 Sound: ON</button>
+        <button class="util-btn" id="btnVibrate" onpointerdown="Feedback.toggleVibrate()">📳 Vibrate: ON</button>
+    </div>
+
+    <!-- Collapsible CA GST & Currency Drawer -->
+    <div class="ca-drawer" id="caDrawer">
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickConvert(84)">₹ ➔ $ USD</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickConvert(91)">₹ ➔ € EUR</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickGST(18, true)">+18% GST</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickGST(18, false)">-18% GST</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickConvert(108)">₹ ➔ £ GBP</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickGST(5, true)">+5% GST</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickGST(12, true)">+12% GST</button>
+        <button class="ca-chip" onpointerdown="Feedback.trigger()" onclick="Engine.quickGST(28, true)">+28% GST</button>
+    </div>
+
+    <!-- Calculator Hardware Container -->
+    <div class="calc-wrapper" id="calcWrapper">
+        <!-- Direct Full-HD Image from ImgBB -->
+        <!-- Pehle local casio.png (0 sec offline load) uthayega, na mile toh ImgBB se utha lega! -->
+<img id="casioCutout" src="casio.png" onerror="this.onerror=null; this.src='https://i.ibb.co/7MjBpJy/Casio-MJ-12-D-Calculator-Cutout.png';" alt="Casio MJ-12D">
+
+        <!-- Digital LCD Screen Overlay -->
+        <div class="lcd-overlay">
+            <div class="lcd-header">
+                <div class="lcd-step-box" id="uiStep"></div>
+                <div class="lcd-badges">
+                    <span class="badge" id="uiAns">ANS</span>
+                    <span class="badge" id="uiRev">REV</span>
+                    <span class="badge" id="uiCrt">CRT</span>
+                    <span class="badge" id="uiGT">GT</span>
+                    <span class="badge" id="uiMem">MEMORY</span>
+                    <span class="badge" id="uiConst">K</span>
+                </div>
+                <div class="lcd-op-box" id="uiOp"></div>
+            </div>
+            <div class="lcd-main-row">
+                <div class="lcd-left-flags">
+                    <span class="flag-item" id="uiErr">E</span>
+                </div>
+                <div class="lcd-digits" id="uiDigits">0.</div>
+            </div>
+        </div>
+
+        <!-- ROW 0: AUTO REVIEW, CORRECT, UP (^), DOWN (v) -->
+        <button class="key-hotspot" style="top:39.5%; left:35.5%; width:12.6%; height:5.6%;" data-key="AUTO"></button>
+        <button class="key-hotspot" style="top:39.5%; left:51.8%; width:12.6%; height:5.6%;" data-key="CORRECT"></button>
+        <button class="key-hotspot" style="top:39.5%; left:66.8%; width:12.8%; height:5.6%;" data-key="UP"></button>
+        <button class="key-hotspot" style="top:39.5%; left:81.8%; width:12.8%; height:5.6%;" data-key="DOWN"></button>
+
+        <!-- ROW 1: DISP, Backspace (▶), +/-, √, MU, GT -->
+        <button class="key-hotspot" style="top:47.6%; left:4.8%;  width:12.4%; height:5.5%;" data-key="DISP"></button>
+        <button class="key-hotspot" style="top:47.6%; left:19.8%; width:12.4%; height:5.5%;" data-key="BACK"></button>
+        <button class="key-hotspot" style="top:47.6%; left:35.5%; width:12.4%; height:5.5%;" data-key="SIGN"></button>
+        <button class="key-hotspot" style="top:47.6%; left:51.8%; width:12.4%; height:5.5%;" data-key="SQRT"></button>
+        <button class="key-hotspot" style="top:47.6%; left:66.9%; width:12.4%; height:5.5%;" data-key="MU"></button>
+        <button class="key-hotspot" style="top:47.6%; left:82.0%; width:12.4%; height:5.5%;" data-key="GT"></button>
+
+        <!-- ROW 2: 7, 8, 9, %, C, AC -->
+        <button class="key-hotspot" style="top:55.4%; left:4.8%;  width:12.4%; height:7.6%;" data-key="7"></button>
+        <button class="key-hotspot" style="top:55.4%; left:19.8%; width:12.4%; height:7.6%;" data-key="8"></button>
+        <button class="key-hotspot" style="top:55.4%; left:35.5%; width:12.4%; height:7.6%;" data-key="9"></button>
+        <button class="key-hotspot" style="top:55.4%; left:51.8%; width:12.4%; height:7.6%;" data-key="PERCENT"></button>
+        <button class="key-hotspot" style="top:55.4%; left:66.9%; width:12.4%; height:7.6%;" data-key="C"></button>
+        <button class="key-hotspot" style="top:55.4%; left:82.0%; width:12.4%; height:7.6%;" data-key="AC"></button>
+
+        <!-- ROW 3: 4, 5, 6, ×, ÷, MRC -->
+        <button class="key-hotspot" style="top:65.2%; left:4.8%;  width:12.4%; height:7.6%;" data-key="4"></button>
+        <button class="key-hotspot" style="top:65.2%; left:19.8%; width:12.4%; height:7.6%;" data-key="5"></button>
+        <button class="key-hotspot" style="top:65.2%; left:35.5%; width:12.4%; height:7.6%;" data-key="6"></button>
+        <button class="key-hotspot" style="top:65.2%; left:51.8%; width:12.4%; height:7.6%;" data-key="*"></button>
+        <button class="key-hotspot" style="top:65.2%; left:66.9%; width:12.4%; height:7.6%;" data-key="/"></button>
+        <button class="key-hotspot" style="top:65.2%; left:82.0%; width:12.4%; height:7.6%;" data-key="MRC"></button>
+
+        <!-- ROW 4: 1, 2, 3, TALL +, −, M− -->
+        <button class="key-hotspot" style="top:75.0%; left:4.8%;  width:12.4%; height:7.6%;" data-key="1"></button>
+        <button class="key-hotspot" style="top:75.0%; left:19.8%; width:12.4%; height:7.6%;" data-key="2"></button>
+        <button class="key-hotspot" style="top:75.0%; left:35.5%; width:12.4%; height:7.6%;" data-key="3"></button>
+        <button class="key-hotspot" style="top:75.0%; left:51.8%; width:12.4%; height:17.5%;" data-key="+"></button>
+        <button class="key-hotspot" style="top:75.0%; left:66.9%; width:12.4%; height:7.6%;" data-key="-"></button>
+        <button class="key-hotspot" style="top:75.0%; left:82.0%; width:12.4%; height:7.6%;" data-key="M-"></button>
+
+        <!-- ROW 5: 0, 00, ., =, M+ -->
+        <button class="key-hotspot" style="top:84.8%; left:4.8%;  width:12.4%; height:7.6%;" data-key="0"></button>
+        <button class="key-hotspot" style="top:84.8%; left:19.8%; width:12.4%; height:7.6%;" data-key="00"></button>
+        <button class="key-hotspot" style="top:84.8%; left:35.5%; width:12.4%; height:7.6%;" data-key="."></button>
+        <button class="key-hotspot" style="top:84.8%; left:66.9%; width:12.4%; height:7.6%;" data-key="="></button>
+        <button class="key-hotspot" style="top:84.8%; left:82.0%; width:12.4%; height:7.6%;" data-key="M+"></button>
+    </div>
+
+    <!-- Bottom Right Signature -->
+    <div class="karan-signature">By Karan</div>
+
+<script>
+/**
+ * 0. TACTILE SOUND & VIBRATION ENGINE
+ */
+const Feedback = {
+    soundEnabled: true,
+    vibrateEnabled: true,
+    audioCtx: null,
+
+    init() {
+        try {
+            localStorage.removeItem('karan_ibb_direct_url'); // Clear any old blurry cache
+            const s = localStorage.getItem('karan_calc_sound');
+            const v = localStorage.getItem('karan_calc_vib');
+            if (s !== null) this.soundEnabled = (s === 'true');
+            if (v !== null) this.vibrateEnabled = (v === 'true');
+        } catch(e) {}
+        this.updateButtons();
+    },
+
+    toggleSound() {
+        this.soundEnabled = !this.soundEnabled;
+        try { localStorage.setItem('karan_calc_sound', this.soundEnabled); } catch(e) {}
+        this.updateButtons();
+        this.trigger('NORMAL');
+    },
+
+    toggleVibrate() {
+        this.vibrateEnabled = !this.vibrateEnabled;
+        try { localStorage.setItem('karan_calc_vib', this.vibrateEnabled); } catch(e) {}
+        this.updateButtons();
+        this.trigger('AC');
+    },
+
+    updateButtons() {
+        const sBtn = document.getElementById('btnSound');
+        const vBtn = document.getElementById('btnVibrate');
+        if (!sBtn || !vBtn) return;
+        sBtn.innerText = this.soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+        sBtn.className = 'util-btn' + (this.soundEnabled ? '' : ' off');
+        vBtn.innerText = this.vibrateEnabled ? '📳 Vibrate: ON' : '📴 Vibrate: OFF';
+        vBtn.className = 'util-btn' + (this.vibrateEnabled ? '' : ' off');
+    },
+
+    trigger(keyType = 'NORMAL') {
+        if (this.vibrateEnabled) {
+            const duration = (keyType === 'AC' || keyType === '=') ? 45 : 30;
+            try {
+                if (window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate(duration);
+                } else if (window.Android && typeof window.Android.vibrate === 'function') {
+                    window.Android.vibrate(duration);
+                }
+            } catch (e) {}
+        }
+
+        if (!this.soundEnabled) return;
+        try {
+            if (!this.audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.audioCtx = new AudioContext();
+            }
+            if (this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            }
+
+            const now = this.audioCtx.currentTime;
+            const osc = this.audioCtx.createOscillator();
+            const gain = this.audioCtx.createGain();
+
+            const startFreq = (keyType === '=' || keyType === 'AC') ? 180 : 230;
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(startFreq, now);
+            osc.frequency.exponentialRampToValueAtTime(48, now + 0.032);
+
+            gain.gain.setValueAtTime(0.45, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.032);
+
+            osc.connect(gain);
+            gain.connect(this.audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.035);
+        } catch (err) {}
+    }
+};
+
+/**
+ * 1. DECIMAL PRECISION ENGINE
+ */
+const MathEngine = {
+    MAX_DIGITS: 12,
+    LIMIT: 999999999999,
+
+    clean(num) {
+        if (!isFinite(num) || isNaN(num)) return { val: 0, overflow: true };
+        let fixed = Number(num.toPrecision(14));
+        return this.fitTo12Digits(fixed);
+    },
+
+    fitTo12Digits(num) {
+        if (Math.abs(num) > this.LIMIT) {
+            let rough = num / 1e12;
+            let truncated = this.truncateTo12(rough);
+            return { val: truncated, overflow: true };
+        }
+        return { val: this.truncateTo12(num), overflow: false };
+    },
+
+    truncateTo12(num) {
+        if (num === 0) return 0;
+        let sign = num < 0 ? -1 : 1;
+        let absStr = Math.abs(num).toFixed(11);
+        let parts = absStr.split('.');
+        let intDigits = parts[0].length;
+        if (intDigits >= this.MAX_DIGITS) {
+            return sign * Math.round(Math.abs(num));
+        }
+        let allowedDec = this.MAX_DIGITS - intDigits;
+        let factor = Math.pow(10, allowedDec);
+        let rounded = Math.round((Math.abs(num) + Number.EPSILON) * factor) / factor;
+        return sign * rounded;
+    },
+
+    exec(a, b, op) {
+        let raw = 0;
+        switch (op) {
+            case '+': raw = a + b; break;
+            case '-': raw = a - b; break;
+            case '*': raw = a * b; break;
+            case '/':
+                if (b === 0) return { val: 0, overflow: true };
+                raw = a / b;
+                break;
+            default: raw = b;
+        }
+        return this.clean(raw);
+    }
+};
+
+/**
+ * 2. CASIO MJ-12D STATE & MECHANISM ENGINE
+ */
+const Engine = {
+    state: {
+        inputBuffer: '0',
+        accumulator: null,
+        pendingOp: null,
+        constantMode: false,
+        constantOp: null,
+        constantVal: null,
+        repeatOp: null,
+        repeatVal: null,
+        enteringNew: true,
+        isAnswerShown: false,
+        errorState: false,
+        stepOverflow: false,
+
+        memory: 0,
+        grandTotal: 0,
+        mrcPendingClear: false,
+        dispMode: 0,
+
+        steps: [],
+        mode: 'NORMAL',
+        reviewIdx: 0,
+        autoTimer: null
+    },
+
+    init() {
+        Display.render(this.state);
+    },
+
+    stopAutoReview() {
+        if (this.state.autoTimer) {
+            clearInterval(this.state.autoTimer);
+            this.state.autoTimer = null;
+        }
+    },
+
+    recordStep(val, op, isResult = false) {
+        if (this.state.steps.length >= 150) {
+            this.state.stepOverflow = true;
+            return;
+        }
+        this.state.steps.push({ val, op, isResult });
+    },
+
+    getCurrentNumber() {
+        let v = parseFloat(this.state.inputBuffer);
+        return isNaN(v) ? 0 : v;
+    },
+
+    setNumberToBuffer(num) {
+        this.state.inputBuffer = String(num);
+    },
+
+    pressDigit(d) {
+        this.stopAutoReview();
+        if (this.state.errorState) return;
+        this.state.mrcPendingClear = false;
+
+        if (this.state.mode === 'REVIEW') return;
+
+        if (this.state.enteringNew) {
+            this.state.inputBuffer = (d === '00') ? '0' : d;
+            this.state.enteringNew = false;
+            this.state.isAnswerShown = false;
+        } else {
+            if (this.state.inputBuffer === '0') {
+                this.state.inputBuffer = (d === '00') ? '0' : d;
+            } else if (this.state.inputBuffer === '-0') {
+                this.state.inputBuffer = (d === '00') ? '-0' : '-' + d;
+            } else {
+                let rawLen = this.state.inputBuffer.replace('-', '').replace('.', '').length;
+                if (rawLen + d.length <= 12) {
+                    this.state.inputBuffer += d;
+                } else if (d === '00' && rawLen + 1 === 12) {
+                    this.state.inputBuffer += '0';
+                }
+            }
+        }
+        Display.render(this.state);
+    },
+
+    pressDecimal() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode === 'REVIEW') return;
+        this.state.mrcPendingClear = false;
+
+        if (this.state.enteringNew) {
+            this.state.inputBuffer = '0.';
+            this.state.enteringNew = false;
+            this.state.isAnswerShown = false;
+        } else if (!this.state.inputBuffer.includes('.')) {
+            let rawLen = this.state.inputBuffer.replace('-', '').length;
+            if (rawLen < 12) {
+                this.state.inputBuffer += '.';
+            }
+        }
+        Display.render(this.state);
+    },
+
+    pressBackspace() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode === 'REVIEW' || this.state.isAnswerShown) return;
+        this.state.mrcPendingClear = false;
+
+        let s = this.state.inputBuffer;
+        if (s.length > 1) {
+            s = s.slice(0, -1);
+            if (s === '-' || s === '') s = '0';
+        } else {
+            s = '0';
+        }
+        this.state.inputBuffer = s;
+        Display.render(this.state);
+    },
+
+    pressSign() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode === 'REVIEW') return;
+        this.state.mrcPendingClear = false;
+
+        let num = this.getCurrentNumber();
+        if (num === 0) return;
+        if (this.state.inputBuffer.startsWith('-')) {
+            this.state.inputBuffer = this.state.inputBuffer.slice(1);
+        } else {
+            this.state.inputBuffer = '-' + this.state.inputBuffer;
+        }
+        if (this.state.enteringNew && this.state.accumulator !== null) {
+            this.state.accumulator = -this.state.accumulator;
+        }
+        Display.render(this.state);
+    },
+
+    pressOperator(op) {
+        this.stopAutoReview();
+        if (this.state.errorState) return;
+        this.state.mrcPendingClear = false;
+
+        if (this.state.mode === 'CORRECT') {
+            this.commitCorrection(op);
+            return;
+        }
+        if (this.state.mode === 'REVIEW') {
+            this.state.mode = 'NORMAL';
+        }
+
+        let currentVal = this.getCurrentNumber();
+
+        if (this.state.enteringNew && this.state.pendingOp === op && !this.state.isAnswerShown) {
+            this.state.constantMode = !this.state.constantMode;
+            if (this.state.constantMode) {
+                this.state.constantOp = op;
+                this.state.constantVal = currentVal;
+            } else {
+                this.state.constantOp = null;
+                this.state.constantVal = null;
+            }
+            Display.render(this.state);
+            return;
+        }
+
+        this.state.constantMode = false;
+
+        if (this.state.isAnswerShown && this.state.pendingOp === null) {
+            this.state.steps = [];
+            this.state.stepOverflow = false;
+            this.state.accumulator = currentVal;
+            this.recordStep(currentVal, op, false);
+        } else if (this.state.accumulator === null) {
+            this.state.accumulator = currentVal;
+            this.recordStep(currentVal, op, false);
+        } else if (!this.state.enteringNew) {
+            let res = MathEngine.exec(this.state.accumulator, currentVal, this.state.pendingOp);
+            this.recordStep(currentVal, op, false);
+            this.state.accumulator = res.val;
+            this.setNumberToBuffer(res.val);
+            if (res.overflow) {
+                this.state.errorState = true;
+                Display.render(this.state);
+                return;
+            }
+        } else {
+            if (this.state.steps.length > 0) {
+                this.state.steps[this.state.steps.length - 1].op = op;
+            }
+        }
+
+        this.state.pendingOp = op;
+        this.state.repeatOp = op;
+        this.state.repeatVal = currentVal;
+        this.state.enteringNew = true;
+        this.state.isAnswerShown = false;
+        Display.render(this.state);
+    },
+
+    pressEquals() {
+        this.stopAutoReview();
+        if (this.state.errorState) return;
+        this.state.mrcPendingClear = false;
+
+        if (this.state.mode === 'CORRECT') {
+            this.commitCorrection(null);
+            return;
+        }
+        if (this.state.mode === 'REVIEW') {
+            this.state.mode = 'NORMAL';
+        }
+
+        let currentVal = this.getCurrentNumber();
+
+        if (this.state.constantMode && this.state.constantOp) {
+            let res;
+            if (this.state.constantOp === '*') {
+                res = MathEngine.exec(this.state.constantVal, currentVal, '*');
+            } else {
+                res = MathEngine.exec(currentVal, this.state.constantVal, this.state.constantOp);
+            }
+            this.setNumberToBuffer(res.val);
+            if (res.overflow) {
+                this.state.errorState = true;
+            } else {
+                this.addToGT(res.val);
+            }
+            this.state.enteringNew = true;
+            this.state.isAnswerShown = true;
+            Display.render(this.state);
+            return;
+        }
+
+        if (this.state.pendingOp !== null) {
+            let secondOperand = this.state.enteringNew ? this.state.accumulator : currentVal;
+
+            if (this.state.enteringNew && (this.state.pendingOp === '*' || this.state.pendingOp === '/')) {
+                this.state.constantMode = true;
+                this.state.constantOp = this.state.pendingOp;
+                this.state.constantVal = this.state.accumulator;
+            }
+
+            let res = MathEngine.exec(this.state.accumulator, secondOperand, this.state.pendingOp);
+            this.recordStep(secondOperand, '=', false);
+            this.recordStep(res.val, '', true);
+
+            this.state.repeatOp = this.state.pendingOp;
+            this.state.repeatVal = secondOperand;
+
+            this.setNumberToBuffer(res.val);
+            this.state.accumulator = null;
+            this.state.pendingOp = null;
+            this.state.enteringNew = true;
+            this.state.isAnswerShown = true;
+
+            if (res.overflow) {
+                this.state.errorState = true;
+            } else {
+                this.addToGT(res.val);
+            }
+        } else if (this.state.repeatOp !== null && this.state.repeatVal !== null) {
+            let res = MathEngine.exec(currentVal, this.state.repeatVal, this.state.repeatOp);
+            this.setNumberToBuffer(res.val);
+            this.state.enteringNew = true;
+            this.state.isAnswerShown = true;
+            if (res.overflow) {
+                this.state.errorState = true;
+            } else {
+                this.addToGT(res.val);
+            }
+        }
+
+        Display.render(this.state);
+    },
+
+    pressPercent() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode !== 'NORMAL') return;
+        if (this.state.pendingOp === null || this.state.accumulator === null) return;
+
+        let rate = this.getCurrentNumber();
+        let base = this.state.accumulator;
+        let rawRes = 0;
+
+        switch (this.state.pendingOp) {
+            case '*': rawRes = (base * rate) / 100; break;
+            case '/':
+                if (rate === 0) { this.state.errorState = true; Display.render(this.state); return; }
+                rawRes = (base / rate) * 100;
+                break;
+            case '+': rawRes = base + ((base * rate) / 100); break;
+            case '-': rawRes = base - ((base * rate) / 100); break;
+        }
+
+        let res = MathEngine.clean(rawRes);
+        this.recordStep(rate, '%', false);
+        this.recordStep(res.val, '', true);
+
+        this.setNumberToBuffer(res.val);
+        this.state.accumulator = null;
+        this.state.pendingOp = null;
+        this.state.enteringNew = true;
+        this.state.isAnswerShown = true;
+
+        if (res.overflow) this.state.errorState = true;
+        else this.addToGT(res.val);
+
+        Display.render(this.state);
+    },
+
+    pressMU() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode !== 'NORMAL') return;
+        if (this.state.accumulator === null || this.state.pendingOp === null) return;
+
+        let b = this.getCurrentNumber();
+        let a = this.state.accumulator;
+        let rawRes = 0;
+
+        if (this.state.pendingOp === '/') {
+            let denom = 1 - (b / 100);
+            if (denom === 0) { this.state.errorState = true; Display.render(this.state); return; }
+            rawRes = a / denom;
+        } else if (this.state.pendingOp === '*') {
+            rawRes = a * (1 + (b / 100));
+        } else if (this.state.pendingOp === '-') {
+            if (b === 0) { this.state.errorState = true; Display.render(this.state); return; }
+            rawRes = ((a - b) / b) * 100;
+        } else if (this.state.pendingOp === '+') {
+            rawRes = ((a + b) / b) * 100;
+        }
+
+        let res = MathEngine.clean(rawRes);
+        this.recordStep(b, 'MU', false);
+        this.recordStep(res.val, '', true);
+
+        this.setNumberToBuffer(res.val);
+        this.state.accumulator = null;
+        this.state.pendingOp = null;
+        this.state.enteringNew = true;
+        this.state.isAnswerShown = true;
+
+        if (res.overflow) this.state.errorState = true;
+        else this.addToGT(res.val);
+
+        Display.render(this.state);
+    },
+
+    pressSqrt() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode === 'REVIEW') return;
+
+        let val = this.getCurrentNumber();
+        if (val < 0) {
+            this.state.errorState = true;
+            this.setNumberToBuffer(Math.abs(val));
+            Display.render(this.state);
+            return;
+        }
+        let res = MathEngine.clean(Math.sqrt(val));
+        this.setNumberToBuffer(res.val);
+        this.state.enteringNew = true;
+        Display.render(this.state);
+    },
+
+    addToGT(val) {
+        let res = MathEngine.clean(this.state.grandTotal + val);
+        this.state.grandTotal = res.val;
+    },
+
+    pressGT() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode !== 'NORMAL') return;
+        this.state.mrcPendingClear = false;
+        this.setNumberToBuffer(this.state.grandTotal);
+        this.state.enteringNew = true;
+        Display.render(this.state);
+    },
+
+    memoryOp(sign) {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode !== 'NORMAL') return;
+        this.state.mrcPendingClear = false;
+
+        let val = this.getCurrentNumber();
+        if (this.state.pendingOp !== null && !this.state.enteringNew) {
+            let calc = MathEngine.exec(this.state.accumulator, val, this.state.pendingOp);
+            if (calc.overflow) {
+                this.state.errorState = true;
+                this.setNumberToBuffer(calc.val);
+                Display.render(this.state);
+                return;
+            }
+            val = calc.val;
+            this.recordStep(this.getCurrentNumber(), '=', false);
+            this.recordStep(val, '', true);
+            this.setNumberToBuffer(val);
+            this.state.accumulator = null;
+            this.state.pendingOp = null;
+        }
+
+        let memRes = MathEngine.clean(this.state.memory + (sign * val));
+        this.state.memory = memRes.val;
+        this.state.enteringNew = true;
+        this.state.isAnswerShown = true;
+        Display.render(this.state);
+    },
+
+    pressMRC() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.mode !== 'NORMAL') return;
+
+        if (!this.state.mrcPendingClear) {
+            this.setNumberToBuffer(this.state.memory);
+            this.state.enteringNew = true;
+            this.state.mrcPendingClear = true;
+        } else {
+            this.state.memory = 0;
+            this.state.mrcPendingClear = false;
+        }
+        Display.render(this.state);
+    },
+
+    pressC() {
+        this.stopAutoReview();
+        this.state.mrcPendingClear = false;
+
+        if (this.state.errorState || this.state.stepOverflow) {
+            this.state.errorState = false;
+            this.state.stepOverflow = false;
+            Display.render(this.state);
+            return;
+        }
+
+        this.state.inputBuffer = '0';
+        this.state.enteringNew = false;
+        Display.render(this.state);
+    },
+
+    pressAC() {
+        this.stopAutoReview();
+        this.state.inputBuffer = '0';
+        this.state.accumulator = null;
+        this.state.pendingOp = null;
+        this.state.constantMode = false;
+        this.state.constantOp = null;
+        this.state.constantVal = null;
+        this.state.repeatOp = null;
+        this.state.repeatVal = null;
+        this.state.enteringNew = true;
+        this.state.isAnswerShown = false;
+        this.state.errorState = false;
+        this.state.stepOverflow = false;
+        this.state.grandTotal = 0;
+        this.state.mrcPendingClear = false;
+        this.state.steps = [];
+        this.state.mode = 'NORMAL';
+        this.state.reviewIdx = 0;
+        Display.render(this.state);
+    },
+
+    pressDisp() {
+        this.stopAutoReview();
+        if (this.state.errorState) return;
+        this.state.dispMode = (this.state.dispMode + 1) % 2;
+        Display.render(this.state);
+    },
+
+    pressStepUp() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.steps.length === 0 || this.state.mode === 'CORRECT') return;
+
+        if (this.state.mode !== 'REVIEW') {
+            this.state.mode = 'REVIEW';
+            this.state.reviewIdx = this.state.steps.length - 1;
+        } else {
+            this.state.reviewIdx = (this.state.reviewIdx - 1 + this.state.steps.length) % this.state.steps.length;
+        }
+        this.loadReviewStep();
+    },
+
+    pressStepDown() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.steps.length === 0 || this.state.mode === 'CORRECT') return;
+
+        if (this.state.mode !== 'REVIEW') {
+            this.state.mode = 'REVIEW';
+            this.state.reviewIdx = 0;
+        } else {
+            this.state.reviewIdx = (this.state.reviewIdx + 1) % this.state.steps.length;
+        }
+        this.loadReviewStep();
+    },
+
+    loadReviewStep() {
+        let step = this.state.steps[this.state.reviewIdx];
+        this.setNumberToBuffer(step.val);
+        Display.render(this.state);
+    },
+
+    pressCorrect() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.steps.length === 0) return;
+
+        if (this.state.mode === 'REVIEW') {
+            let step = this.state.steps[this.state.reviewIdx];
+            if (step.isResult) return;
+            this.state.mode = 'CORRECT';
+            this.state.enteringNew = true;
+            Display.render(this.state);
+        } else if (this.state.mode === 'CORRECT') {
+            this.commitCorrection(null);
+        }
+    },
+
+    commitCorrection(newOp) {
+        let step = this.state.steps[this.state.reviewIdx];
+        step.val = this.getCurrentNumber();
+        if (newOp && step.op !== '=' && step.op !== '%' && step.op !== 'MU') {
+            step.op = newOp;
+        }
+        this.recalculateAllSteps();
+        this.state.mode = 'REVIEW';
+        this.loadReviewStep();
+    },
+
+    recalculateAllSteps() {
+        if (this.state.steps.length === 0) return;
+        let running = this.state.steps[0].val;
+        let currentOp = this.state.steps[0].op;
+
+        for (let i = 1; i < this.state.steps.length; i++) {
+            let s = this.state.steps[i];
+            if (s.isResult) {
+                s.val = running;
+                continue;
+            }
+            if (s.op === '%') {
+                if (currentOp === '*') running = MathEngine.clean((running * s.val) / 100).val;
+                else if (currentOp === '+') running = MathEngine.clean(running + (running * s.val) / 100).val;
+                else if (currentOp === '-') running = MathEngine.clean(running - (running * s.val) / 100).val;
+            } else {
+                let r = MathEngine.exec(running, s.val, currentOp);
+                running = r.val;
+                currentOp = s.op;
+            }
+        }
+        this.setNumberToBuffer(running);
+    },
+
+    pressAutoReview() {
+        this.stopAutoReview();
+        if (this.state.errorState || this.state.steps.length === 0 || this.state.mode === 'CORRECT') return;
+
+        this.state.mode = 'REVIEW';
+        this.state.reviewIdx = 0;
+        this.loadReviewStep();
+
+        this.state.autoTimer = setInterval(() => {
+            this.state.reviewIdx++;
+            if (this.state.reviewIdx >= this.state.steps.length) {
+                this.stopAutoReview();
+                this.state.mode = 'NORMAL';
+                let lastStep = this.state.steps[this.state.steps.length - 1];
+                this.setNumberToBuffer(lastStep.val);
+                this.state.isAnswerShown = lastStep.isResult;
+                Display.render(this.state);
+                return;
+            }
+            Feedback.trigger();
+            this.loadReviewStep();
+        }, 700);
+    },
+
+    quickConvert(rate) {
+        if (this.state.errorState) return;
+        let v = this.getCurrentNumber();
+        let res = MathEngine.clean(Number((v / rate).toFixed(2)));
+        this.setNumberToBuffer(res.val);
+        this.state.enteringNew = true;
+        Display.render(this.state);
+    },
+
+    quickGST(rate, add) {
+        if (this.state.errorState) return;
+        let v = this.getCurrentNumber();
+        let raw = add ? v * (1 + rate / 100) : v / (1 + rate / 100);
+        let res = MathEngine.clean(Number(raw.toFixed(2)));
+        this.setNumberToBuffer(res.val);
+        this.state.enteringNew = true;
+        Display.render(this.state);
+    }
+};
+
+/**
+ * 3. DISPLAY RENDERING ENGINE
+ */
+const Display = {
+    els: {
+        step: document.getElementById('uiStep'),
+        ans: document.getElementById('uiAns'),
+        rev: document.getElementById('uiRev'),
+        crt: document.getElementById('uiCrt'),
+        gt: document.getElementById('uiGT'),
+        mem: document.getElementById('uiMem'),
+        constK: document.getElementById('uiConst'),
+        op: document.getElementById('uiOp'),
+        err: document.getElementById('uiErr'),
+        digits: document.getElementById('uiDigits')
+    },
+
+    formatReadout(strVal, dispMode) {
+        let isNeg = strVal.startsWith('-') && parseFloat(strVal) !== 0;
+        let clean = strVal.replace('-', '');
+        let hasDot = clean.includes('.');
+        let [intPart, decPart] = clean.split('.');
+
+        let formattedInt = '';
+        if (dispMode === 0) {
+            if (intPart.length > 3) {
+                let last3 = intPart.slice(-3);
+                let rest = intPart.slice(0, -3);
+                formattedInt = rest.replace(/\B(?=(\d{2})+(?!\d))/g, "'") + "'" + last3;
+            } else {
+                formattedInt = intPart;
+            }
+        } else {
+            formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+        }
+
+        let prefix = isNeg ? '-' : '';
+        return prefix + formattedInt + (hasDot ? '.' + (decPart || '') : '.');
+    },
+
+    render(state) {
+        this.els.err.className = 'flag-item' + ((state.errorState || state.stepOverflow) ? ' active' : '');
+        this.els.digits.innerText = this.formatReadout(state.inputBuffer, state.dispMode);
+
+        let stepCount = 0;
+        let activeOp = state.pendingOp || '';
+        let showAns = state.isAnswerShown;
+
+        if (state.mode === 'REVIEW' || state.mode === 'CORRECT') {
+            stepCount = state.reviewIdx + 1;
+            let st = state.steps[state.reviewIdx];
+            activeOp = st ? st.op : '';
+            showAns = st ? st.isResult : false;
+        } else {
+            stepCount = state.steps.length;
+        }
+        this.els.step.innerText = stepCount > 0 ? String(stepCount).padStart(3, '0') : '';
+
+        const opMap = { '*': '×', '/': '÷', '+': '+', '-': '−', '=': '=', '%': '%', 'MU': 'MU' };
+        this.els.op.innerText = opMap[activeOp] || '';
+
+        this.els.ans.className = 'badge' + (showAns ? ' active' : '');
+        this.els.rev.className = 'badge' + (state.mode === 'REVIEW' ? ' active' : '');
+        this.els.crt.className = 'badge' + (state.mode === 'CORRECT' ? ' active' : '');
+        this.els.gt.className = 'badge' + (state.grandTotal !== 0 ? ' active' : '');
+        this.els.mem.className = 'badge' + (state.memory !== 0 ? ' active' : '');
+        this.els.constK.className = 'badge' + (state.constantMode ? ' active' : '');
+    }
+};
+
+/**
+ * 4. INPUT & UI CONTROLLER
+ */
+const UIController = {
+    init() {
+        document.querySelectorAll('.key-hotspot').forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const k = btn.getAttribute('data-key');
+                btn.classList.add('pressed');
+                Feedback.trigger(k);
+                this.dispatchKey(k);
+            });
+            btn.addEventListener('pointerup', () => btn.classList.remove('pressed'));
+            btn.addEventListener('pointerleave', () => btn.classList.remove('pressed'));
+        });
+
+        document.addEventListener('keydown', (e) => {
+            let mapped = null;
+            if (e.key >= '0' && e.key <= '9') mapped = e.key;
+            else if (e.key === '.') mapped = '.';
+            else if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') mapped = e.key;
+            else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); mapped = '='; }
+            else if (e.key === 'Backspace') mapped = 'BACK';
+            else if (e.key === 'Escape') mapped = 'AC';
+            else if (e.key === 'Delete') mapped = 'C';
+            else if (e.key === '%') mapped = 'PERCENT';
+            else if (e.key === 'ArrowUp') { e.preventDefault(); mapped = 'UP'; }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); mapped = 'DOWN'; }
+
+            if (mapped) {
+                Feedback.trigger(mapped);
+                this.dispatchKey(mapped);
+            }
+        });
+    },
+
+    dispatchKey(key) {
+        switch (key) {
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+            case '00':
+                Engine.pressDigit(key); break;
+            case '.': Engine.pressDecimal(); break;
+            case '+': case '-': case '*': case '/':
+                Engine.pressOperator(key); break;
+            case '=': Engine.pressEquals(); break;
+            case 'PERCENT': Engine.pressPercent(); break;
+            case 'SQRT': Engine.pressSqrt(); break;
+            case 'SIGN': Engine.pressSign(); break;
+            case 'BACK': Engine.pressBackspace(); break;
+            case 'MU': Engine.pressMU(); break;
+            case 'GT': Engine.pressGT(); break;
+            case 'M+': Engine.memoryOp(1); break;
+            case 'M-': Engine.memoryOp(-1); break;
+            case 'MRC': Engine.pressMRC(); break;
+            case 'C': Engine.pressC(); break;
+            case 'AC': Engine.pressAC(); break;
+            case 'DISP': Engine.pressDisp(); break;
+            case 'UP': Engine.pressStepUp(); break;
+            case 'DOWN': Engine.pressStepDown(); break;
+            case 'CORRECT': Engine.pressCorrect(); break;
+            case 'AUTO': Engine.pressAutoReview(); break;
+        }
+    },
+
+    toggleDrawer() {
+        document.getElementById('caDrawer').classList.toggle('open');
+    }
+};
+
+Feedback.init();
+UIController.init();
+Engine.init();
+</script>
+
+</body>
+</html>
