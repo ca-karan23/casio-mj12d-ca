@@ -45,4 +45,8 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          script: echo "Skipping emulator, artifact packaged via web build."
+          script: echo "Skipping emulator, artifact packaged via web build."- name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: android-project/app/build/outputs/apk/release/*.apk
