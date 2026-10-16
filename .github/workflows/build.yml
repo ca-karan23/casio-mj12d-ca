@@ -1,10 +1,3 @@
-# Place this file at:  .github/workflows/build.yml
-#
-# Repo root must contain:  index.html  (required)
-#                          casio.png, manifest.json, sw.js  (optional - copied if present)
-#
-# Output: CA-Calculator.apk  (Actions tab -> run -> Artifacts, or the Releases page for v* tags)
-
 name: Build CA Calculator APK
 
 on:
