@@ -1,123 +1,113 @@
-name: Build CA Calculator APK
+name: Build Android APK
 
 on:
   push:
-    branches: [main, master]
-    tags: ['v*']
+    branches: [ main ]
   workflow_dispatch:
-
-permissions:
-  contents: write   # only used to attach the APK to a GitHub Release on v* tags
 
 env:
   APP_NAME: CA Calculator
   APP_ID: com.karan.cacalculator
-  BG_COLOR: "#0b0d10"        # icon + splash background (same as the app's page colour)
-  ICON_SIZE: "640"           # calculator size inside the 1024px icon (smaller = more padding)
+  BG_COLOR: "#0b0d10"
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Set up Java
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Install ImageMagick
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick
 
-      - name: Prepare web files
+      - name: Prepare web assets
         run: |
-          mkdir -p www assets
-          cp index.html www/index.html
-          for f in casio.png manifest.json sw.js; do
-            if [ -f "$f" ]; then cp "$f" www/; fi
+          mkdir -p apkbuild/www
+          cp index.html apkbuild/www/
+          cp casio.png apkbuild/www/
+          for f in manifest.json sw.js; do
+            if [ -f "$f" ]; then cp "$f" apkbuild/www/; fi
           done
-          # casio.png missing from the repo? fetch the same cutout the app uses as fallback
-          if [ ! -f www/casio.png ]; then
-            curl -fsSL "https://i.ibb.co/7MjBpJy/Casio-MJ-12-D-Calculator-Cutout.png" -o www/casio.png
-            cp www/casio.png casio.png
-          fi
 
-      - name: Create Capacitor project config
+      - name: Create Capacitor Android project
+        working-directory: apkbuild
         run: |
-          if [ ! -f package.json ]; then
-            echo '{ "name": "ca-calculator", "version": "1.0.0", "private": true }' > package.json
-          fi
-          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8
-          npm install --save-dev @capacitor/assets
-          cat > capacitor.config.json <<EOF
-          {
-            "appId": "$APP_ID",
-            "appName": "$APP_NAME",
-            "webDir": "www",
-            "backgroundColor": "$BG_COLOR",
-            "server": { "androidScheme": "https" }
-          }
-          EOF
-
-      - name: Make icon + splash from casio.png
-        run: |
-          IM=$(command -v magick || command -v convert)
-          # 1) crop away the transparent border around the calculator cutout
-          $IM www/casio.png -trim +repage /tmp/calc.png
-          # 2) adaptive-icon foreground (transparent) - the launcher adds the rounded/round mask
-          $IM /tmp/calc.png -resize ${ICON_SIZE}x${ICON_SIZE} -background none -gravity center -extent 1024x1024 assets/icon-foreground.png
-          # 3) adaptive-icon background (solid)
-          $IM -size 1024x1024 xc:"$BG_COLOR" assets/icon-background.png
-          # 4) flat icon for older Android versions
-          $IM /tmp/calc.png -resize ${ICON_SIZE}x${ICON_SIZE} -background "$BG_COLOR" -gravity center -extent 1024x1024 -flatten assets/icon-only.png
-          # 5) splash screen: calculator centred on the app background colour
-          $IM -size 2732x2732 xc:"$BG_COLOR" \( /tmp/calc.png -resize 1100x1100 \) -gravity center -composite assets/splash.png
-          cp assets/splash.png assets/splash-dark.png
-
-      - name: Add Android platform
-        run: |
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "$APP_NAME" "$APP_ID" --web-dir=www
           npx cap add android
           npx cap sync android
-          npx capacitor-assets generate --android \
-            --iconBackgroundColor "$BG_COLOR" --iconBackgroundColorDark "$BG_COLOR" \
-            --splashBackgroundColor "$BG_COLOR" --splashBackgroundColorDark "$BG_COLOR"
+
+      - name: Set icon + splash from casio.png
+        working-directory: apkbuild
+        run: |
+          RES=android/app/src/main/res
+          BG="$BG_COLOR"
+
+          # crop the transparent border around the calculator cutout
+          convert www/casio.png -trim +repage /tmp/calc.png
+
+          # launcher icons per density: name:adaptive-foreground-px:legacy-px
+          for d in mdpi:108:48 hdpi:162:72 xhdpi:216:96 xxhdpi:324:144 xxxhdpi:432:192; do
+            IFS=: read name fg legacy <<< "$d"
+            dir="$RES/mipmap-$name"
+            mkdir -p "$dir"
+            # adaptive foreground: transparent, calculator inside the safe zone (the launcher adds the rounded mask)
+            box=$(( fg * 60 / 100 ))
+            convert /tmp/calc.png -resize "${box}x${box}" -background none -gravity center -extent "${fg}x${fg}" -depth 8 "$dir/ic_launcher_foreground.png"
+            # legacy icon (old Android): calculator on solid background
+            lbox=$(( legacy * 80 / 100 ))
+            convert -size "${legacy}x${legacy}" xc:"$BG" \( /tmp/calc.png -resize "${lbox}x${lbox}" \) -gravity center -composite -depth 8 "$dir/ic_launcher.png"
+            cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
+          done
+
+          # adaptive icon background colour
+          mkdir -p "$RES/values"
+          cat > "$RES/values/ic_launcher_background.xml" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">$BG</color>
+          </resources>
+          EOF
+
+          # splash screens: keep each file's size, draw calculator centred on the background colour
+          find "$RES" -name 'splash*.png' | while read -r f; do
+            size=$(identify -format '%wx%h' "$f")
+            W=${size%x*}; H=${size#*x}
+            M=$(( W < H ? W : H ))
+            convert -size "${W}x${H}" xc:"$BG" \( /tmp/calc.png -resize "x$(( M * 35 / 100 ))" \) -gravity center -composite -depth 8 "$f"
+          done
 
       - name: Patch AndroidManifest (vibration + portrait)
+        working-directory: apkbuild
         run: |
           M=android/app/src/main/AndroidManifest.xml
           sed -i 's#</manifest>#    <uses-permission android:name="android.permission.VIBRATE" />\n</manifest>#' "$M"
           sed -i 's#<activity#<activity android:screenOrientation="portrait"#' "$M"
 
-      - name: Build debug APK
-        working-directory: android
+      - name: Build APK
+        working-directory: apkbuild/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk ../CA-Calculator.apk
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: CA-Calculator-APK
-          path: CA-Calculator.apk
+          path: apkbuild/CA-Calculator.apk
           if-no-files-found: error
-
-      - name: Attach APK to GitHub Release (v* tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: CA-Calculator.apk
