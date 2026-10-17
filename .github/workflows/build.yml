@@ -8,7 +8,9 @@ on:
 env:
   APP_NAME: CA Calculator
   APP_ID: com.karan.cacalculator
-  BG_COLOR: "#0b0d10"
+  ICON_BG_TOP: "#d7dfd3"       
+  ICON_BG_BOTTOM: "#a4b6a0"
+  ICON_SCALE: "48"             
 
 jobs:
   build:
@@ -51,44 +53,71 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Set icon + splash from casio.png
+      - name: Build icon + splash from casio.png
         working-directory: apkbuild
         run: |
           RES=android/app/src/main/res
-          BG="$BG_COLOR"
+          GRAD="$ICON_BG_TOP-$ICON_BG_BOTTOM"
 
-          # crop the transparent border around the calculator cutout
-          convert www/casio.png -trim +repage /tmp/calc.png
+          # 1) Calculator exactly as the app shows it: same crop as the page CSS
+          #    (cuts off the white edges of casio.png), same rounded corners.
+          W=$(identify -format '%w' www/casio.png)
+          H=$(identify -format '%h' www/casio.png)
+          CW=$(( W * 851064 / 1000000 )); CH=$(( H * 915750 / 1000000 ))
+          CX=$(( W * 74468 / 1000000 ));  CY=$(( H * 42125 / 1000000 ))
+          convert www/casio.png -crop "${CW}x${CH}+${CX}+${CY}" +repage -resize '910x1015!' \
+            -background '#1d1e20' -alpha remove -alpha off /tmp/flat.png
+          convert -size 910x1015 xc:black -fill white -draw 'roundrectangle 0,0 909,1014 79,79' /tmp/mask.png
+          convert /tmp/flat.png /tmp/mask.png -alpha off -compose CopyOpacity -composite /tmp/calc.png
 
-          # launcher icons per density: name:adaptive-foreground-px:legacy-px
+          # helper: transparent WxH canvas, calculator (height BH) centred, soft drop shadow
+          shadowed() {
+            local w=$1 h=$2 bh=$3 out=$4
+            local sg=$(( bh / 60 + 1 )) off=$(( bh / 45 + 1 ))
+            convert -size "${w}x${h}" xc:none \( /tmp/calc.png -resize "x${bh}" \) -gravity center -composite /tmp/body.png
+            convert /tmp/body.png \( +clone -channel A -blur "0x${sg}" +channel -fill black -colorize 100 \
+              -channel A -evaluate multiply 0.55 +channel -roll "+0+${off}" \) +swap -composite -depth 8 "$out"
+          }
+
+          # 2) Launcher icons for every density: name:adaptive-px:legacy-px
           for d in mdpi:108:48 hdpi:162:72 xhdpi:216:96 xxhdpi:324:144 xxxhdpi:432:192; do
             IFS=: read name fg legacy <<< "$d"
             dir="$RES/mipmap-$name"
             mkdir -p "$dir"
-            # adaptive foreground: transparent, calculator inside the safe zone (the launcher adds the rounded mask)
-            box=$(( fg * 60 / 100 ))
-            convert /tmp/calc.png -resize "${box}x${box}" -background none -gravity center -extent "${fg}x${fg}" -depth 8 "$dir/ic_launcher_foreground.png"
-            # legacy icon (old Android): calculator on solid background
-            lbox=$(( legacy * 80 / 100 ))
-            convert -size "${legacy}x${legacy}" xc:"$BG" \( /tmp/calc.png -resize "${lbox}x${lbox}" \) -gravity center -composite -depth 8 "$dir/ic_launcher.png"
-            cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
+
+            # adaptive icon (Android 8+): transparent foreground + gradient background
+            shadowed "$fg" "$fg" $(( fg * ICON_SCALE / 100 )) "$dir/ic_launcher_foreground.png"
+            convert -size "${fg}x${fg}" gradient:"$GRAD" -depth 8 "$dir/ic_launcher_bg.png"
+
+            # legacy icons (Android < 8): rounded square + round
+            shadowed "$legacy" "$legacy" $(( legacy * 68 / 100 )) /tmp/lfg.png
+            convert -size "${legacy}x${legacy}" gradient:"$GRAD" /tmp/lfg.png -composite /tmp/lflat.png
+            r=$(( legacy * 22 / 100 )); c=$(( legacy / 2 ))
+            convert -size "${legacy}x${legacy}" xc:black -fill white \
+              -draw "roundrectangle 0,0 $((legacy-1)),$((legacy-1)) $r,$r" /tmp/lmask.png
+            convert /tmp/lflat.png /tmp/lmask.png -alpha off -compose CopyOpacity -composite -depth 8 "$dir/ic_launcher.png"
+            convert -size "${legacy}x${legacy}" xc:black -fill white -draw "circle $c,$c $c,0" /tmp/lmask.png
+            convert /tmp/lflat.png /tmp/lmask.png -alpha off -compose CopyOpacity -composite -depth 8 "$dir/ic_launcher_round.png"
           done
 
-          # adaptive icon background colour
-          mkdir -p "$RES/values"
-          cat > "$RES/values/ic_launcher_background.xml" <<EOF
+          # adaptive icon definitions -> use the gradient background image
+          mkdir -p "$RES/mipmap-anydpi-v26"
+          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="ic_launcher_background">$BG</color>
-          </resources>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@mipmap/ic_launcher_bg"/>
+              <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+          </adaptive-icon>
           EOF
+          cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
 
-          # splash screens: keep each file's size, draw calculator centred on the background colour
+          # 3) Splash screens: keep each file's size, gradient + calculator centred
           find "$RES" -name 'splash*.png' | while read -r f; do
             size=$(identify -format '%wx%h' "$f")
-            W=${size%x*}; H=${size#*x}
-            M=$(( W < H ? W : H ))
-            convert -size "${W}x${H}" xc:"$BG" \( /tmp/calc.png -resize "x$(( M * 35 / 100 ))" \) -gravity center -composite -depth 8 "$f"
+            sw=${size%x*}; sh=${size#*x}
+            m=$(( sw < sh ? sw : sh ))
+            shadowed "$sw" "$sh" $(( m * 38 / 100 )) /tmp/sfg.png
+            convert -size "${sw}x${sh}" gradient:"$GRAD" /tmp/sfg.png -composite -depth 8 "$f"
           done
 
       - name: Patch AndroidManifest (vibration + portrait)
